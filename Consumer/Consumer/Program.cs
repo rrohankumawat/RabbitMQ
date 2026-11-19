@@ -6,10 +6,17 @@ var factory = new ConnectionFactory { HostName = "localhost" };
 await using var connection = await factory.CreateConnectionAsync();
 await using var channel = await connection.CreateChannelAsync();
 
-await channel.ExchangeDeclareAsync("events", ExchangeType.Topic, durable: true);   // same as the producer
-const string queueName = "billing.orders";
+await channel.ExchangeDeclareAsync("reports", ExchangeType.Headers, durable: true);   // same as the producer
+const string queueName = "pdf_queue";
 await channel.QueueDeclareAsync(queueName, durable: true, exclusive: false, autoDelete: false);
-await channel.QueueBindAsync(queueName, "events", routingKey: "order.#");   // <-- pattern: # = zero or more words
+
+await channel.QueueBindAsync(queueName, "reports", routingKey: "",
+    arguments: new Dictionary<string, object?>   // <-- header rules
+    {  //x-match -> all, any
+        ["x-match"] = "any",
+        ["format"] = "pdf",
+        ["priority"] = "low"
+    });
 
 var consumer = new AsyncEventingBasicConsumer(channel);
 consumer.ReceivedAsync += async (_, ea) =>
