@@ -6,10 +6,10 @@ var factory = new ConnectionFactory { HostName = "localhost" };
 await using var connection = await factory.CreateConnectionAsync();
 await using var channel = await connection.CreateChannelAsync();
 
-await channel.ExchangeDeclareAsync("logs_direct", ExchangeType.Direct, durable: true);   // same as the producer
-const string queueName = "errors_only";
+await channel.ExchangeDeclareAsync("events", ExchangeType.Topic, durable: true);   // same as the producer
+const string queueName = "billing.orders";
 await channel.QueueDeclareAsync(queueName, durable: true, exclusive: false, autoDelete: false);
-await channel.QueueBindAsync(queueName, "logs_direct", routingKey: "info");   // <-- binding key must EQUAL the routing key
+await channel.QueueBindAsync(queueName, "events", routingKey: "order.#");   // <-- pattern: # = zero or more words
 
 var consumer = new AsyncEventingBasicConsumer(channel);
 consumer.ReceivedAsync += async (_, ea) =>
