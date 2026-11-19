@@ -1,33 +1,22 @@
-﻿using RabbitMQ.Client;
-using System.Text;
+﻿using System.Text;
+using RabbitMQ.Client;
 
-var factory = new ConnectionFactory
+var factory = new ConnectionFactory { HostName = "localhost" };
+await using var connection = await factory.CreateConnectionAsync();
+await using var channel = await connection.CreateChannelAsync();
+
+await channel.ExchangeDeclareAsync("notifications", ExchangeType.Fanout, durable: true);   // <-- exchange type
+
+var messages = new[]
 {
-    HostName = "localhost"
+    ("", "Site maintenance in 5 minutes")
 };
 
-using var conn = await factory.CreateConnectionAsync();
-
-using var channel = await conn.CreateChannelAsync();
-
-await channel.QueueDeclareAsync("hello", durable: true, exclusive: false, autoDelete: false);
-
-var random = new Random();
-
-for (int i = 0; i < 200; i++)
+foreach (var (key, text) in messages)
 {
-    var seconds = random.Next(1, 6);
-    var msg = $"job-{i}: {seconds}";
-    var props = new BasicProperties { Persistent = true };
-
-    var body = Encoding.UTF8.GetBytes(msg);
-
-    await channel.BasicPublishAsync(
-        exchange: string.Empty,
-        mandatory: false,
-        basicProperties: props,
-        body: body, 
-        routingKey: "hello");
+    var body = Encoding.UTF8.GetBytes(text);
+    await channel.BasicPublishAsync(exchange: "notifications", routingKey: key, body: body);   // <-- routing key
+    Console.WriteLine($"Sent [{key}] {text}");
 }
 
-Console.WriteLine("Sent");
+Console.WriteLine("Done.");
